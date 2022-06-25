@@ -66,14 +66,13 @@ func subscribeToUsers(client mqtt.Client) {
 	fmt.Printf("Subscribed to topic: %s\n", topic)
 }
 
-func sendSlackMessageWithImage(filePath, content string) error {
+func sendSlackMessageWithImage(filePath string) error {
 	fmt.Println("uploading: ", filePath)
 	f, err := os.Open(filePath)
 	params := slack.FileUploadParameters{
 		Title:    "Presence right now",
 		Reader:   bufio.NewReader(f),
 		Filename: "presence",
-		Content:  content,
 		Channels: []string{viper.GetString("slack.channel_id")},
 	}
 	// can use the file to delete and re-upload for maintaining a single image
@@ -98,7 +97,7 @@ func notifyPresence(db *services.DB) error {
 	if err != nil || len(path) == 0 {
 		return fmt.Errorf("error creating avatar %s\n", err)
 	}
-	err = sendSlackMessageWithImage(path, "Current Office Presence")
+	err = sendSlackMessageWithImage(path)
 	if err != nil {
 		return fmt.Errorf("error sending slack %s\n", err)
 	}
@@ -157,6 +156,7 @@ var messageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 					}
 					err = notifyPresence(db)
 					if err != nil {
+						fmt.Printf("Posting slack image %s\n", err)
 						// send Slack message to channel general
 						_, _, _ = api.PostMessage(viper.GetString("slack.channel_id"), slack.MsgOptionText(fmt.Sprintf("%s just entered the office :wave:", user.Name), false))
 					}
@@ -170,6 +170,7 @@ var messageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 					}
 					err = notifyPresence(db)
 					if err != nil {
+						fmt.Printf("Posting slack image %s\n", err)
 						// send Slack message to channel general
 						_, _, _ = api.PostMessage(viper.GetString("slack.channel_id"), slack.MsgOptionText(fmt.Sprintf("%s just left the office :door:", user.Name), false))
 					}
