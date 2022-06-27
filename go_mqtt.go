@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type JsonMessage struct {
@@ -212,6 +213,8 @@ func main() {
 	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", broker, port))
 	opts.SetUsername(viper.GetString("broker.username"))
 	opts.SetPassword(viper.GetString("broker.password"))
+	opts.SetAutoReconnect(true)
+	opts.SetKeepAlive(1 * time.Minute)
 
 	db := services.GetDBInstance()
 
