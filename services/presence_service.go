@@ -6,7 +6,8 @@ import (
 )
 
 type PresenceService struct {
-	db *sql.DB
+	db                        *sql.DB
+	userPresenceByUserIdCache map[int]bool
 }
 
 type Presence struct {
@@ -18,7 +19,19 @@ type Presence struct {
 }
 
 func createPresenceService(db *sql.DB) *PresenceService {
-	return &PresenceService{db: db}
+	return &PresenceService{db: db,
+		userPresenceByUserIdCache: make(map[int]bool)}
+}
+
+func (ps *PresenceService) IsPresent(userId int) bool {
+	if ps.userPresenceByUserIdCache == nil {
+		return false
+	} else {
+		if _, ok := ps.userPresenceByUserIdCache[userId]; ok {
+			return true
+		}
+		return false
+	}
 }
 
 func (ps *PresenceService) UpsertPresence(userId int, isPresent bool) error {
@@ -34,13 +47,15 @@ func (ps *PresenceService) UpsertPresence(userId int, isPresent bool) error {
 		return fmt.Errorf("could not execute query %w", err)
 
 	}
+	ps.userPresenceByUserIdCache[userId] = true
+
 	return nil
 }
 
 func (ps *PresenceService) ResetPresence() error {
 	insertPresenceSQL := `DELETE FROM presence`
 	statement, err := ps.db.Prepare(insertPresenceSQL)
-
+	ps.userPresenceByUserIdCache = make(map[int]bool)
 	if err != nil {
 		return fmt.Errorf("could not prepare query %w", err)
 

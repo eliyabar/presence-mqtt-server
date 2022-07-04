@@ -149,7 +149,13 @@ var messageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 				//string to int
 				confidence, err := strconv.Atoi(jsonMessage.Confidence)
 				if confidence == 100 {
-					fmt.Printf("%s is here", jsonMessage.Id)
+
+					fmt.Printf("%s is here \n", jsonMessage.Id)
+
+					if db.PresenceService.IsPresent(user.UID) {
+						return
+					}
+
 					err := db.PresenceService.UpsertPresence(user.UID, true)
 					if err != nil {
 						fmt.Printf("could not upsert presence %s \n", err)
@@ -162,7 +168,8 @@ var messageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 						_, _, _ = api.PostMessage(viper.GetString("slack.channel_id"), slack.MsgOptionText(fmt.Sprintf("%s just entered the office :wave:", user.Name), false))
 					}
 
-				} else if confidence == 0 {
+				}
+				/*else if confidence == 0 {
 					fmt.Printf("%s is gone", jsonMessage.Id)
 					err := db.PresenceService.UpsertPresence(user.UID, false)
 					if err != nil {
@@ -176,7 +183,7 @@ var messageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 						_, _, _ = api.PostMessage(viper.GetString("slack.channel_id"), slack.MsgOptionText(fmt.Sprintf("%s just left the office :door:", user.Name), false))
 					}
 
-				}
+				}*/
 				res := ""
 				// iterate over map
 				for key, value := range mapJson {
@@ -258,3 +265,5 @@ func main() {
 	cr.Stop()
 
 }
+
+//  TODO: crete an option to subscribe to a user
