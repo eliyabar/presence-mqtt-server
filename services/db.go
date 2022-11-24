@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/spf13/viper"
-	"path/filepath"
 	"sync"
 )
 
@@ -30,10 +29,9 @@ func GetDBInstance() *DB {
 		lock.Lock()
 		defer lock.Unlock()
 		if dbInstance == nil {
-			absPath, _ := filepath.Abs(viper.GetString("database.file"))
 			fmt.Println("Running DB instance now.", viper.GetString("database.file"))
 
-			sqliteDatabase, err := sql.Open("sqlite3", absPath) // Open the created SQLite File
+			sqliteDatabase, err := sql.Open("sqlite3", viper.GetString("database.file")) // Open the created SQLite File
 			if err != nil {
 				panic(fmt.Errorf("fatal error db file: %w", err))
 			}
