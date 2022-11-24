@@ -19,8 +19,17 @@ type Presence struct {
 }
 
 func createPresenceService(db *sql.DB) *PresenceService {
-	return &PresenceService{db: db,
+	ps := &PresenceService{db: db,
 		userPresenceByUserIdCache: make(map[int]bool)}
+
+	presence, err := ps.GetPresence()
+	if err != nil {
+		fmt.Println("could not fill cache from db")
+	}
+	for _, p := range presence {
+		ps.userPresenceByUserIdCache[p.UserID] = p.IsPresent
+	}
+	return ps
 }
 
 func (ps *PresenceService) IsPresent(userId int) bool {
@@ -34,22 +43,26 @@ func (ps *PresenceService) IsPresent(userId int) bool {
 	}
 }
 
-func (ps *PresenceService) UpsertPresence(userId int, isPresent bool) error {
+func (ps *PresenceService) UpsertPresence(userId int, isPresent bool) (bool, error) {
+	if v, ok := ps.userPresenceByUserIdCache[userId]; ok && v == isPresent {
+		fmt.Println("value is cached")
+		return false, nil
+	}
 	insertPresenceSQL := `INSERT INTO presence (user_id, is_present) VALUES ($1, $2) ON CONFLICT(user_id) DO UPDATE SET is_present = $2, last_update = CURRENT_TIMESTAMP`
 	statement, err := ps.db.Prepare(insertPresenceSQL)
 
 	if err != nil {
-		return fmt.Errorf("could not prepare query %w", err)
+		return false, fmt.Errorf("could not prepare query %w", err)
 
 	}
 	_, err = statement.Exec(userId, isPresent)
 	if err != nil {
-		return fmt.Errorf("could not execute query %w", err)
+		return false, fmt.Errorf("could not execute query %w", err)
 
 	}
-	ps.userPresenceByUserIdCache[userId] = true
+	ps.userPresenceByUserIdCache[userId] = isPresent
 
-	return nil
+	return true, nil
 }
 
 func (ps *PresenceService) ResetPresence() error {

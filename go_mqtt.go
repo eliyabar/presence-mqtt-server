@@ -37,7 +37,7 @@ type UserAddRequest struct {
 
 var mapJson = map[string]bool{}
 var api *slack.Client
-
+var lastSlackFile *slack.File
 var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
 	options := client.OptionsReader()
 	fmt.Println("Connected to: ", options.Servers())
@@ -76,11 +76,18 @@ func sendSlackMessageWithImage(filePath string) error {
 		Filename: "presence",
 		Channels: []string{viper.GetString("slack.channel_id")},
 	}
+	if lastSlackFile != nil {
+		err = api.DeleteFile(lastSlackFile.ID)
+		if err != nil {
+			fmt.Printf("Could not Delete the last file")
+		}
+	}
 	// can use the file to delete and re-upload for maintaining a single image
-	_, err = api.UploadFile(params)
+	file, err := api.UploadFile(params)
 	if err != nil {
 		return fmt.Errorf("could not upload file with params %v %w", params, err)
 	}
+	lastSlackFile = file
 	return nil
 }
 
@@ -146,19 +153,19 @@ var messageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 					fmt.Printf("could not get user by mac %s \n", err)
 					return
 				}
+
 				//string to int
 				confidence, err := strconv.Atoi(jsonMessage.Confidence)
 				if confidence == 100 {
 
 					fmt.Printf("%s is here \n", jsonMessage.Id)
 
-					if db.PresenceService.IsPresent(user.UID) {
-						return
-					}
-
-					err := db.PresenceService.UpsertPresence(user.UID, true)
+					dbUpdated, err := db.PresenceService.UpsertPresence(user.UID, true)
 					if err != nil {
 						fmt.Printf("could not upsert presence %s \n", err)
+						return
+					}
+					if !dbUpdated {
 						return
 					}
 					err = notifyPresence(db)
@@ -168,14 +175,20 @@ var messageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 						_, _, _ = api.PostMessage(viper.GetString("slack.channel_id"), slack.MsgOptionText(fmt.Sprintf("%s just entered the office :wave:", user.Name), false))
 					}
 
-				}
-				/*else if confidence == 0 {
+				} else if confidence == 0 {
+					if !db.PresenceService.IsPresent(user.UID) {
+						return
+					}
 					fmt.Printf("%s is gone", jsonMessage.Id)
-					err := db.PresenceService.UpsertPresence(user.UID, false)
+					dbUpdated, err := db.PresenceService.UpsertPresence(user.UID, false)
 					if err != nil {
 						fmt.Printf("could not upsert presence %s \n", err)
 						return
 					}
+					if !dbUpdated {
+						return
+					}
+
 					err = notifyPresence(db)
 					if err != nil {
 						fmt.Printf("Posting slack image %s\n", err)
@@ -183,7 +196,7 @@ var messageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Messa
 						_, _, _ = api.PostMessage(viper.GetString("slack.channel_id"), slack.MsgOptionText(fmt.Sprintf("%s just left the office :door:", user.Name), false))
 					}
 
-				}*/
+				}
 				res := ""
 				// iterate over map
 				for key, value := range mapJson {

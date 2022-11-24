@@ -18,10 +18,10 @@ func TestAddPresence(t *testing.T) {
 	defer sqliteDatabase.Close() // Defer Closing the database
 
 	presenceService := createPresenceService(sqliteDatabase)
-	err = presenceService.UpsertPresence(1, true)
+	res, _ := presenceService.UpsertPresence(1, true)
 
 	if err != nil {
-		t.Fatalf(`UpsertPresence ERR ,%v, want "", error`, err)
+		t.Fatalf(`UpsertPresence ERR ,%v, want "", error`, res)
 
 	}
 }
