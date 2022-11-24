@@ -5,6 +5,7 @@ import (
 	gim "github.com/ozankasikci/go-image-merge"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 )
@@ -28,8 +29,15 @@ func CreateAvatar(presence []PresenceImage) (string, error) {
 			BackgroundColor: c,
 		})
 	}
-
-	rgba, err := gim.New(grids, len(presence), 1).Merge()
+	x := len(presence)
+	y := 1
+	if len(presence) >= 4 {
+		x = 4
+	}
+	if len(presence) > 4 {
+		y = int(math.Ceil(float64(len(presence)) / 4))
+	}
+	rgba, err := gim.New(grids, x, y).Merge()
 
 	if err != nil {
 		return "", fmt.Errorf("cannot create image %w", err)
